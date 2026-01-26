@@ -1,0 +1,8 @@
+{
+    "scraper_status": "idle",
+    "stop_after": 0,
+    "delay_min": 1,
+    "delay_max": 3,
+    "headless": false,
+    "proxy_enabled": false
+}
