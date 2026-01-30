@@ -2,7 +2,11 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-os.makedirs("backend/logs", exist_ok=True)
+# Determine absolute paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def setup_logger(name, log_file, level=logging.INFO):
@@ -18,5 +22,5 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 
-scraper_logger = setup_logger("scraper", "backend/logs/scraper.log")
-server_logger = setup_logger("server", "backend/logs/server.log")
+scraper_logger = setup_logger("scraper", os.path.join(LOG_DIR, "scraper.log"))
+server_logger = setup_logger("server", os.path.join(LOG_DIR, "server.log"))

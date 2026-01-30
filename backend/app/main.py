@@ -4,6 +4,7 @@ from fastapi import (
     HTTPException,
     BackgroundTasks,
     WebSocket,
+    WebSocketDisconnect,
     UploadFile,
     File,
     Form,
@@ -12,9 +13,11 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from . import models, database, scraper_engine, config, state
+from .websocket_manager import manager
 import os
 import pandas as pd
-from datetime import datetime
+import asyncio
+import json
 
 # Init DB
 models.Base.metadata.create_all(bind=database.engine)
@@ -58,11 +61,12 @@ def get_status():
 
 
 @app.post("/control/{action}")
-def control_scraper(action: str):
+def control_scraper(action: str, background_tasks: BackgroundTasks):
     if action == "start":
         engine.start()
     elif action == "stop":
-        engine.stop()
+        # Run stop in background to avoid blocking API
+        background_tasks.add_task(engine.stop)
     elif action == "pause":
         engine.pause()
     elif action == "resume":
@@ -100,6 +104,9 @@ def get_metrics(response: Response, db: Session = Depends(get_db)):
         db.query(models.Keyword).filter(models.Keyword.status == "processing").count()
     )
     failed = db.query(models.Keyword).filter(models.Keyword.status == "failed").count()
+    skipped = (
+        db.query(models.Keyword).filter(models.Keyword.status == "skipped").count()
+    )
 
     return {
         "total": total,
@@ -107,6 +114,7 @@ def get_metrics(response: Response, db: Session = Depends(get_db)):
         "pending": pending,
         "processing": processing,
         "failed": failed,
+        "skipped": skipped,
     }
 
 
@@ -343,6 +351,29 @@ def reset_all_keywords(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/keywords/reset-skipped")
+def reset_skipped_keywords(db: Session = Depends(get_db)):
+    """Reset all skipped keywords (timeout exceeded) back to pending status for retry"""
+    try:
+        skipped_keywords = (
+            db.query(models.Keyword)
+            .filter(models.Keyword.status == models.KeywordStatus.SKIPPED)
+            .all()
+        )
+
+        count = len(skipped_keywords)
+
+        for keyword in skipped_keywords:
+            keyword.status = models.KeywordStatus.PENDING
+
+        db.commit()
+
+        return {"message": f"Reset {count} skipped keywords to pending", "count": count}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/logs")
 def get_logs(limit: int = 50, db: Session = Depends(get_db)):
     logs = (
@@ -352,11 +383,6 @@ def get_logs(limit: int = 50, db: Session = Depends(get_db)):
         .all()
     )
     return logs
-
-
-from .websocket_manager import manager
-import asyncio
-import json
 
 
 @app.on_event("startup")
@@ -371,10 +397,7 @@ async def broadcast_logs():
             # Non-blocking get from queue
             while not state.state_manager.log_queue.empty():
                 log_entry = state.state_manager.log_queue.get_nowait()
-                # Broadcast format
-                # We send string for simplicity, or json
-                msg = f"{log_entry['timestamp']} {log_entry['message']}"
-                # Or better: send JSON and let frontend format
+                # Broadcast log entry as JSON for frontend formatting
                 await manager.broadcast(json.dumps(log_entry))
 
             await asyncio.sleep(0.5)  # Poll queue every 500ms
@@ -389,6 +412,6 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Keep alive
-            data = await websocket.receive_text()
-    except:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
         manager.disconnect(websocket)

@@ -2,7 +2,7 @@ from .google_sheets import GoogleSheetsManager
 from .save_buffer import SaveBuffer
 import pandas as pd
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 import os
 import logging
 
@@ -33,14 +33,29 @@ class DataSaver:
     def _init_google_sheets(self):
         """Initialize Google Sheets manager with error handling"""
         try:
-            creds_path = "credentials/service_account.json"
-            if os.path.exists(creds_path):
+            # Determine project root
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            # Candidate paths for credentials
+            candidates = [
+                os.path.join(project_root, "credentials", "service_account.json"),
+                os.path.join("credentials", "service_account.json"),
+                "service_account.json",
+            ]
+
+            creds_path = None
+            for p in candidates:
+                if os.path.exists(p):
+                    creds_path = p
+                    break
+
+            if creds_path:
                 self.sheets_manager = GoogleSheetsManager(
                     creds_path, "MapsScraperResults"
                 )
                 logger.info("Google Sheets integration enabled")
             else:
-                logger.warning(f"Credentials not found at {creds_path}")
+                logger.warning(f"Credentials not found. Searched: {candidates}")
                 logger.warning("Google Sheets disabled. Using local backup only.")
                 self.sheets_manager = None
         except Exception as e:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from datetime import datetime
 import enum
 from .database import Base
@@ -18,6 +18,7 @@ class KeywordStatus(str, enum.Enum):
     PROCESSING = "processing"
     DONE = "done"
     FAILED = "failed"
+    SKIPPED = "skipped"  # Timeout exceeded, auto-skipped
 
 
 class Job(Base):

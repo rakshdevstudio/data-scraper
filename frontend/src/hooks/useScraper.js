@@ -4,7 +4,7 @@ import { toast } from "sonner"
 
 export function useScraper() {
     const [status, setStatus] = useState("idle")
-    const [metrics, setMetrics] = useState({ total: 0, done: 0, pending: 0, processing: 0, failed: 0 })
+    const [metrics, setMetrics] = useState({ total: 0, done: 0, pending: 0, processing: 0, failed: 0, skipped: 0 })
     const [logs, setLogs] = useState([])
     const [keywords, setKeywords] = useState([])
 
@@ -107,6 +107,18 @@ export function useScraper() {
         }
     }
 
+    const resetSkipped = async () => {
+        try {
+            const res = await API.post("/keywords/reset-skipped")
+            toast.success(res.data.message || "Skipped keywords reset to pending")
+            // Refresh metrics after reset
+            const metricsRes = await API.get("/metrics")
+            setMetrics(metricsRes.data)
+        } catch (e) {
+            toast.error("Failed to reset skipped keywords")
+        }
+    }
+
     return {
         status,
         metrics,
@@ -118,6 +130,7 @@ export function useScraper() {
         getConfig,
         updateConfig,
         resetFailed,
-        resetAll
+        resetAll,
+        resetSkipped
     }
 }

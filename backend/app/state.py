@@ -9,6 +9,7 @@ class ScraperStatus(str, Enum):
     RUNNING = "running"
     PAUSED = "paused"
     STOPPING = "stopping"  # Transitional state
+    RECOVERING = "recovering"  # Watchdog auto-recovery
     ERROR = "error"
 
 
@@ -30,6 +31,10 @@ class StateManager:
         self._total_count = 0
         self._start_time = None
         self.log_queue = queue.Queue()
+
+        # Watchdog tracking
+        self._last_progress_time = None
+        self._watchdog_restart_count = 0
 
         # Events for thread control
         self.stop_event = threading.Event()
@@ -77,8 +82,28 @@ class StateManager:
             self._status = ScraperStatus.IDLE
             self._processed_count = 0
             self._start_time = None
+            self._last_progress_time = None
+            self._watchdog_restart_count = 0
             self.stop_event.clear()
             self.pause_event.set()
+
+    def update_heartbeat(self):
+        """Update last progress timestamp (called by heartbeat thread)."""
+        with self._lock:
+            self._last_progress_time = datetime.now()
+
+    def get_watchdog_stats(self):
+        """Get watchdog statistics for monitoring."""
+        with self._lock:
+            return {
+                "last_progress_time": self._last_progress_time,
+                "watchdog_restart_count": self._watchdog_restart_count,
+            }
+
+    def increment_watchdog_restarts(self):
+        """Increment watchdog restart counter."""
+        with self._lock:
+            self._watchdog_restart_count += 1
 
 
 state_manager = StateManager()
