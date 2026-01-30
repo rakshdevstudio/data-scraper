@@ -6,7 +6,7 @@ import { useScraper } from "@/hooks/useScraper"
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 
-export function Keywords() {
+export default function Keywords() {
     const { keywords, fetchKeywords, uploadKeywords } = useScraper()
     const [filter, setFilter] = useState("")
     const [uploadMode, setUploadMode] = useState("add")

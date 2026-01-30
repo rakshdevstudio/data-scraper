@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
-import { Dashboard } from '@/pages/Dashboard'
-import { Keywords } from '@/pages/Keywords'
+import Dashboard from '@/pages/Dashboard'
+import Keywords from '@/pages/Keywords'
 
 import { Toaster } from 'sonner'
 

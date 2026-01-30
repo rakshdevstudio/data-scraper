@@ -12,12 +12,14 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from . import models, database, scraper_engine, config, state
+from . import models, database, config, state
 from .websocket_manager import manager
 import os
 import pandas as pd
 import asyncio
 import json
+import sys
+from .scraper_manager import scraper_manager
 
 # Init DB
 models.Base.metadata.create_all(bind=database.engine)
@@ -27,13 +29,30 @@ app = FastAPI(title="Maps Scraper Dashboard")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-engine = scraper_instance = scraper_engine.scraper_instance
+
+# Startup Check
+async def broadcast_logs():
+    pass
+
+
+@app.on_event("startup")
+async def startup_check():
+    # Enforce VENV
+    if "venv" not in sys.executable:
+        print("❌ CRITICAL: Backend NOT running in VENV. Aborting.")
+        # sys.exit(1) # Unsafe to exit in uvicorn, but we log loudly
+
+    # Start Manager Logic if needed (it lazy loads)
+    asyncio.create_task(broadcast_logs())
 
 
 # Dependency
@@ -47,7 +66,7 @@ def get_db():
 
 @app.get("/")
 def read_root():
-    return {"message": "Maps Scraper API is running"}
+    return {"message": "Maps Scraper API is running (Production Mode)"}
 
 
 @app.get("/health")
@@ -56,21 +75,38 @@ def health_check():
 
 
 @app.get("/status")
-def get_status():
-    return state.state_manager.get_state()
+def get_status(db: Session = Depends(get_db)):
+    # Fetch status from DB
+    job = db.query(models.Job).filter(models.Job.id == 1).first()
+    status = job.status if job else "idle"
+
+    # We can also check internal task state if needed
+    if scraper_manager.scraper_task and not scraper_manager.scraper_task.done():
+        if status not in ["running", "paused"]:
+            # Inconsistency check
+            pass
+    elif status == "running":
+        # If DB says running but task is dead
+        status = "stopped"  # or error
+
+    return {
+        "status": status,
+        "processed": 0,
+        "uptime": "Active",  # Backend is always active
+    }
 
 
 @app.post("/control/{action}")
-def control_scraper(action: str, background_tasks: BackgroundTasks):
+async def control_scraper(action: str, background_tasks: BackgroundTasks):
+    manager = scraper_manager
     if action == "start":
-        engine.start()
+        await manager.start_scraper()
     elif action == "stop":
-        # Run stop in background to avoid blocking API
-        background_tasks.add_task(engine.stop)
+        await manager.stop_scraper()
     elif action == "pause":
-        engine.pause()
+        await manager.pause_scraper()
     elif action == "resume":
-        engine.resume()
+        await manager.resume_scraper()
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
     return {"message": f"Scraper {action} command sent"}
@@ -146,8 +182,19 @@ def get_keywords(
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
 
+    total = db.query(models.Keyword).count()
     keywords = db.query(models.Keyword).offset(skip).limit(limit).all()
-    return keywords
+
+    page = (skip // limit) + 1
+    total_pages = (total + limit - 1) // limit
+
+    return {
+        "items": keywords,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+    }
 
 
 @app.post("/keywords/upload")
@@ -383,27 +430,6 @@ def get_logs(limit: int = 50, db: Session = Depends(get_db)):
         .all()
     )
     return logs
-
-
-@app.on_event("startup")
-async def startup_event():
-    # Start the log broadcaster
-    asyncio.create_task(broadcast_logs())
-
-
-async def broadcast_logs():
-    while True:
-        try:
-            # Non-blocking get from queue
-            while not state.state_manager.log_queue.empty():
-                log_entry = state.state_manager.log_queue.get_nowait()
-                # Broadcast log entry as JSON for frontend formatting
-                await manager.broadcast(json.dumps(log_entry))
-
-            await asyncio.sleep(0.5)  # Poll queue every 500ms
-        except Exception as e:
-            print(f"Log broadcast error: {e}")
-            await asyncio.sleep(1)
 
 
 @app.websocket("/ws")

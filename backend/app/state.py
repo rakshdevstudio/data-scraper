@@ -105,5 +105,10 @@ class StateManager:
         with self._lock:
             self._watchdog_restart_count += 1
 
+    def clear_logs(self):
+        """Clear the log queue."""
+        with self._lock:
+            self.log_queue = queue.Queue()
+
 
 state_manager = StateManager()

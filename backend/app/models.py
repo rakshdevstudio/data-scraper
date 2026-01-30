@@ -19,6 +19,7 @@ class KeywordStatus(str, enum.Enum):
     DONE = "done"
     FAILED = "failed"
     SKIPPED = "skipped"  # Timeout exceeded, auto-skipped
+    THROTTLED = "throttled"  # Rate limited/CAPTCHA detected
 
 
 class Job(Base):
