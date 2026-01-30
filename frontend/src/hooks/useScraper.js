@@ -46,15 +46,17 @@ export function useScraper() {
         }
     }
 
-    const uploadKeywords = async (file) => {
+    const uploadKeywords = async (file, mode = "add") => {
         try {
             const formData = new FormData()
             formData.append("file", file)
+            formData.append("mode", mode)
             const res = await API.post("/keywords/upload", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             })
-            fetchKeywords()
-            return { success: true, message: res.data.message }
+            // Refresh keywords list after upload
+            await fetchKeywords()
+            return { success: true, message: res.data.message, data: res.data }
         } catch (e) {
             console.error("Upload failed", e)
             return { success: false, message: e.response?.data?.detail || e.message }
@@ -81,6 +83,30 @@ export function useScraper() {
         }
     }
 
+    const resetFailed = async () => {
+        try {
+            const res = await API.post("/keywords/reset-failed")
+            toast.success(res.data.message)
+            // Refresh metrics after reset
+            const metricsRes = await API.get("/metrics")
+            setMetrics(metricsRes.data)
+        } catch (e) {
+            toast.error("Failed to reset failed keywords")
+        }
+    }
+
+    const resetAll = async () => {
+        try {
+            const res = await API.post("/keywords/reset-all")
+            toast.success(res.data.message)
+            // Refresh metrics after reset
+            const metricsRes = await API.get("/metrics")
+            setMetrics(metricsRes.data)
+        } catch (e) {
+            toast.error("Failed to reset keywords")
+        }
+    }
+
     return {
         status,
         metrics,
@@ -90,6 +116,8 @@ export function useScraper() {
         fetchKeywords,
         uploadKeywords,
         getConfig,
-        updateConfig
+        updateConfig,
+        resetFailed,
+        resetAll
     }
 }

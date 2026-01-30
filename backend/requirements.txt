@@ -2,9 +2,13 @@ fastapi
 uvicorn
 sqlalchemy
 pydantic
-playwright
-pandas
-openpyxl
+playwright==1.41.0
+pandas==2.1.4
+openpyxl==3.1.2
+gspread==5.12.0
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
 python-multipart
 websockets
 greenlet

@@ -6,7 +6,7 @@ import { useScraper } from "@/hooks/useScraper"
 import { motion } from "framer-motion"
 
 export function Dashboard() {
-    const { status, metrics, logs, control } = useScraper()
+    const { status, metrics, logs, control, resetFailed, resetAll } = useScraper()
 
     const getStatusColor = (s) => {
         switch (s) {
@@ -35,6 +35,43 @@ export function Dashboard() {
                 <MetricCard title="Pending" value={metrics.pending} delay={0.2} />
                 <MetricCard title="Failed" value={metrics.failed} delay={0.3} color="text-red-400" />
             </div>
+
+            {/* Reset Controls - Show when there are failed keywords */}
+            {metrics.failed > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex gap-3 items-center justify-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
+                >
+                    <span className="text-yellow-400 text-sm">
+                        ⚠️ {metrics.failed.toLocaleString()} failed keywords detected
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            if (confirm(`Reset ${metrics.failed.toLocaleString()} failed keywords to pending? They will be retried.`)) {
+                                resetFailed()
+                            }
+                        }}
+                        className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+                    >
+                        Retry Failed
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            if (confirm(`Reset ALL non-completed keywords to pending? This will retry ${metrics.failed + metrics.processing} keywords.`)) {
+                                resetAll()
+                            }
+                        }}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                    >
+                        Reset All
+                    </Button>
+                </motion.div>
+            )}
 
             {/* Control & Logs */}
             <div className="grid gap-4 md:grid-cols-7">

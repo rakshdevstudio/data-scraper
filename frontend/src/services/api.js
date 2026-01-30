@@ -21,4 +21,15 @@ API.interceptors.response.use(
     }
 );
 
+// API Methods
+export const resetFailedKeywords = async () => {
+    const response = await API.post("/keywords/reset-failed");
+    return response.data;
+};
+
+export const resetAllKeywords = async () => {
+    const response = await API.post("/keywords/reset-all");
+    return response.data;
+};
+
 export default API;

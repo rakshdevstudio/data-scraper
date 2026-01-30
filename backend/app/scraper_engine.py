@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright
 from . import models, database, config
 from .logger import scraper_logger
 from .state import state_manager, ScraperStatus
+from .data_saver import DataSaver
 
 
 class ScraperEngine:
@@ -19,6 +20,7 @@ class ScraperEngine:
         self.context = None
         self.page = None
         self.playwright = None
+        self.data_saver = None  # For incremental Google Sheets saves
 
     # ... start/stop methods unchanged ...
 
@@ -32,6 +34,13 @@ class ScraperEngine:
 
     def stop(self):
         state_manager.set_status(ScraperStatus.STOPPING)
+        # Flush all pending data before stopping
+        if self.data_saver:
+            self._log("Flushing all pending data...")
+            try:
+                self.data_saver.flush_all()
+            except Exception as e:
+                self._log(f"Error flushing data: {e}", level="ERROR")
         if self.thread:
             self.thread.join()
 
@@ -74,6 +83,11 @@ class ScraperEngine:
     def _run_scraper(self):
         self.db_session = database.SessionLocal()
         try:
+            # Initialize DataSaver with unique dataset ID
+            dataset_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            self.data_saver = DataSaver(dataset_id, batch_size=10)
+            self._log(f"DataSaver initialized (dataset: {dataset_id})")
+
             self._log("Starting Scraper Engine...")
 
             # CRASH RECOVERY: Reset any stuck 'PROCESSING' keywords to 'PENDING'
@@ -203,8 +217,21 @@ class ScraperEngine:
 
         except Exception as e:
             self._log(f"Scraper Engine Crash: {e}", level="ERROR")
+            # CRASH RECOVERY: Flush data before crashing
+            if self.data_saver:
+                try:
+                    self._log("Emergency data flush...")
+                    self.data_saver.flush_all()
+                except:
+                    pass
             state_manager.set_status(ScraperStatus.ERROR)
         finally:
+            # Final flush on any exit
+            if self.data_saver:
+                try:
+                    self.data_saver.flush_all()
+                except:
+                    pass
             if self.browser:
                 self.browser.close()
             self.db_session.close()
@@ -291,10 +318,12 @@ class ScraperEngine:
                 details = self._extract_details(url)
                 details["Keyword"] = k
                 all_data.append(details)
-                # Save incrementally?
-                # Maybe append to a global CSV/Excel or DB table?
-                # Requirements say "Excel needs to contain data".
-                # Let's save to the desktop file.
+
+                # INCREMENTAL SAVE: Save to Google Sheets + local backup immediately
+                if self.data_saver:
+                    self.data_saver.save_business(details)
+
+                # Also save to desktop file for backwards compatibility
                 self._save_to_excel(all_data)
                 time.sleep(1)
             except Exception as e:

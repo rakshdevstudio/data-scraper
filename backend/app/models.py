@@ -48,3 +48,16 @@ class LogEntry(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     level = Column(String, default="INFO")
     message = Column(Text)
+
+
+class UploadHistory(Base):
+    __tablename__ = "upload_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String)
+    upload_time = Column(DateTime, default=datetime.utcnow)
+    file_hash = Column(String, index=True)
+    file_size_bytes = Column(Integer)
+    keywords_count = Column(Integer)
+    new_keywords = Column(Integer)
+    mode = Column(String)  # add, replace, sync

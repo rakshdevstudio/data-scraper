@@ -9,6 +9,7 @@ import { motion } from "framer-motion"
 export function Keywords() {
     const { keywords, fetchKeywords, uploadKeywords } = useScraper()
     const [filter, setFilter] = useState("")
+    const [uploadMode, setUploadMode] = useState("add")
 
     useEffect(() => {
         fetchKeywords()
@@ -16,11 +17,24 @@ export function Keywords() {
 
     const handleFileUpload = async (e) => {
         if (e.target.files?.[0]) {
-            const res = await uploadKeywords(e.target.files[0])
+            // Confirm if using replace mode
+            if (uploadMode === "replace") {
+                const confirmed = confirm(
+                    "⚠️ REPLACE MODE: This will DELETE ALL existing keywords and replace with the new file. Continue?"
+                )
+                if (!confirmed) {
+                    e.target.value = ""
+                    return
+                }
+            }
+
+            const res = await uploadKeywords(e.target.files[0], uploadMode)
             if (res.success) {
-                alert("Keywords uploaded successfully!")
+                alert(`✅ ${res.message}`)
+                // Refresh keywords list to show new data
+                await fetchKeywords()
             } else {
-                alert(`Upload failed: ${res.message}`)
+                alert(`❌ Upload failed: ${res.message}`)
             }
             e.target.value = "" // Reset input
         }
@@ -32,7 +46,18 @@ export function Keywords() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight text-white">Keywords Manager</h1>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    {/* Upload Mode Selector */}
+                    <select
+                        value={uploadMode}
+                        onChange={(e) => setUploadMode(e.target.value)}
+                        className="bg-black/20 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                        <option value="add">➕ Add New Only</option>
+                        <option value="sync">🔄 Sync (Add + Reset)</option>
+                        <option value="replace">🗑️ Clear & Replace All</option>
+                    </select>
+
                     <Button variant="outline" className="gap-2 relative overflow-hidden">
                         <input
                             type="file"

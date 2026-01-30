@@ -16,14 +16,12 @@ ENV/
 credentials/
 *.json
 service_account.json
-mapsscraper-*.json
 
 # Storage/Results
 storage/
 *.xlsx
 *.xls
 maps_results*.xlsx
-~$*.xlsx
 
 # Logs
 *.log
