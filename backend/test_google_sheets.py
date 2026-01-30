@@ -74,7 +74,7 @@ def test_google_sheets():
     print("=" * 60)
     print("🎉 All tests passed!")
     print("=" * 60)
-    print(f"\n📊 View your Google Sheet here:")
+    print("\n📊 View your Google Sheet here:")
     print(f"   {manager.get_sheet_url()}\n")
     print("⚠️  IMPORTANT: Share this sheet with your service account email:")
     print("   maps-scraper-service@mapsscraper-485901.iam.gserviceaccount.com")

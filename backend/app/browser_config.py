@@ -79,9 +79,9 @@ class BrowserConfig:
     def log_browser_info(logger_func, browser_type: str = "chromium"):
         """Log browser and OS telemetry."""
         os_info = BrowserConfig.get_os_info()
-        logger_func(f"=== Browser Telemetry ===")
+        logger_func("=== Browser Telemetry ===")
         logger_func(f"Browser Type: {browser_type}")
         logger_func(f"OS: {os_info['system']}")
         logger_func(f"Architecture: {os_info['machine']}")
         logger_func(f"Platform: {os_info['platform']}")
-        logger_func(f"========================")
+        logger_func("========================")

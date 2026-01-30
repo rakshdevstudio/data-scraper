@@ -22,7 +22,7 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
-            except:
+            except Exception:
                 self.disconnect(connection)
 
 

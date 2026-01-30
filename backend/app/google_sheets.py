@@ -2,7 +2,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 from typing import List, Dict, Optional
 import time
-from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,7 +45,8 @@ class GoogleSheetsManager:
             # Get or create first worksheet
             try:
                 self.worksheet = self.sheet.sheet1
-            except:
+            except Exception as e:
+                logger.debug(f"Creating new worksheet: {e}")
                 self.worksheet = self.sheet.add_worksheet(
                     title="Results", rows=1000, cols=20
                 )
@@ -135,7 +135,8 @@ class GoogleSheetsManager:
             return 0
         try:
             return len(self.worksheet.get_all_values())
-        except:
+        except Exception as e:
+            logger.debug(f"Failed to get row count: {e}")
             return 0
 
     def check_connectivity(self) -> bool:
@@ -146,6 +147,6 @@ class GoogleSheetsManager:
             # Try to read first row
             self.worksheet.row_values(1)
             return True
-        except:
+        except Exception:
             logger.warning("Google Sheets connectivity check failed")
             return False

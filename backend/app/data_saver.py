@@ -175,7 +175,8 @@ class DataSaver:
             try:
                 df = pd.read_excel(self.backup_file)
                 stats["backup_row_count"] = len(df)
-            except:
+            except Exception as e:
+                logger.warning(f"Could not read backup file for stats: {e}")
                 stats["backup_row_count"] = 0
         else:
             stats["backup_file_size"] = 0
