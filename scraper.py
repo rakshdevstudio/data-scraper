@@ -3,6 +3,15 @@ import pandas as pd
 import time
 import datetime
 import os
+import sys
+
+# Add backend app to path to import GoogleSheetsManager
+sys.path.append(os.path.join(os.path.dirname(__file__), "backend/app"))
+try:
+    from google_sheets import GoogleSheetsManager
+except ImportError:
+    print("Could not import GoogleSheetsManager. Make sure backend/app is in path.")
+    GoogleSheetsManager = None
 
 
 def get_business_urls(page):
@@ -130,11 +139,26 @@ def main():
         df = pd.read_excel(input_file)
         if "status" not in df.columns:
             df["status"] = ""
+
+        # Force status column to be text to avoid numeric type crashes
+        df["status"] = df["status"].fillna("").astype(str)
     except Exception as e:
         print("Error reading keywords file:", e)
         return
 
     all_data = []
+
+    # Initialize Google Sheets Manager
+    gs_manager = None
+    if GoogleSheetsManager:
+        try:
+            creds_path = os.path.join(
+                os.path.dirname(__file__), "backend/credentials/service_account.json"
+            )
+            gs_manager = GoogleSheetsManager(credentials_path=creds_path)
+            print("Google Sheets integration enabled.")
+        except Exception as e:
+            print(f"Failed to initialize Google Sheets: {e}")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -244,6 +268,14 @@ def main():
                     details = extract_details_from_url(page, url)
                     details["Keyword"] = k
                     all_data.append(details)
+
+                    # Real-time save to Google Sheets
+                    if gs_manager:
+                        try:
+                            gs_manager.append_rows([details])
+                        except Exception as e:
+                            print(f"    Failed to sync to Google Sheets: {e}")
+
                     time.sleep(1)
                 except Exception as e:
                     print(f"    Error processing URL {url}: {e}")
@@ -254,8 +286,8 @@ def main():
             save_data(all_data)
 
             # Update status in keywords file
-            df.at[index, "status"] = "DONE"
             try:
+                df.at[index, "status"] = "DONE"
                 df.to_excel(input_file, index=False)
                 print(f"Marked '{k}' as DONE in {input_file}")
             except Exception as e:
